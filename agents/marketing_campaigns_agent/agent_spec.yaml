@@ -1,0 +1,93 @@
+---
+models:
+  orchestration: "auto"
+instructions:
+  response: "You are a marketing analytics assistant. Keep responses concise and factual.\n\
+    \n- Cite exact values from tool results (dollar amounts, percentages, counts)\
+    \ — do not round vaguely or replace numbers with general statements.\n- For every\
+    \ campaign you mention, include its start and end dates, its channel, and a one-line\
+    \ summary of what the campaign focused on.\n- For aggregates, give the total plus\
+    \ a breakdown by the most relevant dimension (channel, campaign type, or segment).\n\
+    - Flag data that may be incomplete, such as campaigns still in active status.\n\
+    - If the requested campaign or date does not exist or is invalid, say so clearly\
+    \ and do not invent figures."
+  orchestration: "You are a marketing analytics assistant. Pick the minimum set of\
+    \ tools the question needs.\n\n- Quantitative questions (totals, counts, averages,\
+    \ rankings, ROI, revenue, budget, spend, impressions, clicks, conversions, CPA,\
+    \ engagement, campaign status) → query_performance_metrics only.\n- Qualitative\
+    \ questions (campaign descriptions, strategy, marketing copy, A/B test notes,\
+    \ customer feedback, recommended improvements) → search_campaign_content only.\n\
+    - Report request with a numeric campaign_id → call generate_campaign_report directly.\n\
+    - Report request with a campaign name → query_performance_metrics to look up campaign_id,\
+    \ then generate_campaign_report.\n- Questions that explicitly need both numbers\
+    \ and qualitative context → query_performance_metrics first, then search_campaign_content\
+    \ using the campaign(s) it returned.\n\nNever repeat a tool call whose data you\
+    \ already have. Do not fill gaps with guesses: if a campaign, metric, or date\
+    \ does not exist in the data, say so. If a question is ambiguous (e.g. \"best\"\
+    \ campaign), state which metric you used or ask which one the user means."
+  sample_questions:
+  - question: "What is the total spend across all campaigns?"
+  - question: "Generate a report for our holiday gift guide"
+  - question: "What content format generated the most revenue per dollar spent?"
+  - question: "Which campaign had the highest ROI and what did customers say about\
+      \ it? Generate a report for that campaign too."
+  - question: "Compare the A/B test performance for our email vs social media campaigns"
+  - question: "Which audience segment responded best to our promotions and what was\
+      \ their average spend?"
+  - question: "Which campaigns had the best A/B test lift but the worst customer sentiment?"
+  - question: "Show me campaigns where customer sentiment was negative but ROI was\
+      \ still positive — what made them work financially?"
+tools:
+- tool_spec:
+    type: "cortex_analyst_text_to_sql"
+    name: "query_performance_metrics"
+    description: "Query structured performance data including campaign ROI, revenue,\
+      \ budget efficiency, impressions, clicks, conversions, cost metrics, and engagement\
+      \ rates. Use for quantitative analysis of campaign performance across channels\
+      \ and time periods."
+- tool_spec:
+    type: "cortex_search"
+    name: "search_campaign_content"
+    description: "Search unstructured campaign content including campaign descriptions,\
+      \ marketing copy, A/B test results, customer feedback, and recommended improvements.\
+      \ Use for qualitative insights, content discovery, and learning from past campaigns."
+- tool_spec:
+    type: "generic"
+    name: "generate_campaign_report"
+    description: "Generate a comprehensive HTML report for a specific campaign including\
+      \ all performance metrics, customer feedback, and key insights."
+    input_schema:
+      type: "object"
+      properties:
+        campaign_id:
+          type: "integer"
+          description: "The unique identifier of the campaign to generate a report\
+            \ for"
+      required:
+      - "campaign_id"
+- tool_spec:
+    type: "web_search"
+    name: "web_search"
+- tool_spec:
+    type: "data_to_chart"
+    name: "data_to_chart"
+tool_resources:
+  query_performance_metrics:
+    execution_environment:
+      query_timeout: 299
+      type: "warehouse"
+      warehouse: "COMPUTE_WH"
+    semantic_view: "SELF_IMPROVING_AGENT_DB.AGENTS.MARKETING_PERFORMANCE_ANALYST"
+  search_campaign_content:
+    execution_environment:
+      query_timeout: 299
+      type: "warehouse"
+      warehouse: "COMPUTE_WH"
+    search_service: "SELF_IMPROVING_AGENT_DB.AGENTS.MARKETING_CAMPAIGNS_SEARCH"
+  generate_campaign_report:
+    type: "procedure"
+    identifier: "SELF_IMPROVING_AGENT_DB.AGENTS.GENERATE_CAMPAIGN_REPORT_HTML"
+    execution_environment:
+      type: "warehouse"
+      warehouse: "COMPUTE_WH"
+      query_timeout: 300
